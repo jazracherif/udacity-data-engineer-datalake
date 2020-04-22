@@ -10,7 +10,7 @@
 [spark-jobs]: https://github.com/jazracherif/udacity-data-engineer-datalake/blob/master/docs/spark-jobs.png
 
 
-In this project, I implement a datalake in S3 supported by AWS Elastic MapReduct (EMR).
+In this project, I implement a datalake using S3 and AWS Elastic MapReduce (EMR).
 
 Two datasets are used:
 1. A song dataset, which is a subset of real data from the [Million Song Dataset](http://millionsongdataset.com/).
@@ -18,12 +18,12 @@ Two datasets are used:
 
 The files are stored in S3 bucket `s3a://udacity-dend` and are ingested into fact and dimension tables that are written as parquet file at location `s3://jazra-udacity-spark-etl/`
 
-Fact Table
+Fact Table:
 
     songplays - records in event data associated with song plays i.e. records with page NextSong
         songplay_id, start_time, user_id, level, song_id, artist_id, session_id, location, user_agent
 
-Dimension Tables
+Dimension Tables:
 
     users - users in the app
         user_id, first_name, last_name, gender, level
@@ -35,15 +35,14 @@ Dimension Tables
         start_time, hour, day, week, month, year, weekday
 
 The project consists of the following files:
-- etl.py: A Spark Application that runs the extraction and transformation pipeline
-- submit-job.py: A script to runs the etl.py in an AWS EMR cluster.
+- etl.py: A Spark python scrips that runs the extraction and transformation pipeline
+- emr.py: A utility script to manage EMR ressources, create cluster, submit steps, and query for steps status.
+- test_local.py: a script that extracts and prints the output of the ETL when it is run locally on the `data` files. 
+- aws.cfg: the AWS credentials and region to use
+- emr.cfg: The configuration parameters used to create an EMR cluster using the script emr.py
 
 
-# Installation
-
-This project currently presupposes a running EMR cluster with the proper SSH permissions setup to access the master node
-
-## Setup
+## Installation
 
 Create the virtual environment: 
 
@@ -78,40 +77,50 @@ to view a sample dataset from the generated tables, run:
 
 ##  Running The Pipeline in EMR
 
-To create the EMR cluster and run the pipeline at the same time, run:
+To create the EMR cluster and run one instance of the etl.py pipeline, run:
 `python emr.py --cmd create-cluster`
+
+This command will create the cluster, find the hostname for the master node, copy the etl.py file, and initiate an EMR step that runs the Pipeline.
 
 to check the status of the clusters, run:
 `python emr.py --cmd describe-clusters`
 
-you can also login into AWS EMR console, where you would under the cluster tab, a view similar to the one below
+you can also login into AWS EMR console, where you would under the cluster tab, a view similar to the one below:
+
 ![emr console][spark-etl-cluster]
 
 you can also verify that the ETL pipeline is running by listing the steps in the cluster:
 `python emr.py --cmd list_clusters_steps`
 
-The job should also appear in the Spark UI 
+The job should also appear in the Spark UI:
+
 ![spark-jobs][spark-jobs]
 
-we can also look at the list of the executors for performance
+We can also look at the list of the executors for performance
+
 ![spark executors][spark-executors]
 
-The final tables will show up as folders in S3, in bucket defined in etl.py
+### Output
+
+The final tables will show up as folders in S3, in buckets defined in etl.py
+
 ![s3 buckets][s3-buckets]
 
 The files format is parquet compressed with snappy. Here is an example of the songplays files
+
 ![songplays parquet][songplays-parquet]
 
-# Analysis with Amazon Athena
+## Analysis with Amazon Athena
 
-After running the pipeline, we are able to do some analysis by ingesting the S3 data using [athena](https://aws.amazon.com/athena/)
+After running the pipeline, we can do some analysis by ingesting the S3 data using [athena](https://aws.amazon.com/athena/)
 
 First, setup a Glue crawler that points to the bucket folder where the generated tables files are stored. The crawler will automatically extract the tables from the parquet files.
 
-The crawlers takes a few minutes to run before the tables show up:
+After a few minutes, tables will show up in the Athena console under `Query Editor`:
 
 ![Athena tables][athena-tables]
 
+We can run a query to generate the top 5 most active listeners on the platform using the following query:
 
 ~~~ sql
 WITH top_users AS (
@@ -141,6 +150,7 @@ and we get:
 | Aleena | Kirby | 397 |
 
 See the results in Athena:
+
 ![query-top-users][query-top-users]
 
 
@@ -164,4 +174,5 @@ SELECT location,
 | Atlanta-Sandy Springs-Roswell, GA | 456
 
 See the results in Athena:
+
 ![query top locations][query-top-locations]
