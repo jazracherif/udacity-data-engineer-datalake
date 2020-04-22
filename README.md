@@ -61,14 +61,14 @@ In all sections below, it is assume the venv environment is activated.
 
 ## Running the Pipeline in local mode
 
-The prerequisistes is to have a spark installation
+In order to run the pipeline locally, make sure to have a local install of spark:
 `brew install apache-spark`
 
-run the ETL in spark standalone mode:
+Run the ETL in spark standalone mode:
 
 `spark-submit etl.py --mode local`
 
-parquet files will be generated in a new folder called `out`
+The output tables will be stored as parquet files in a new folder called `out`.
 
 to view a sample dataset from the generated tables, run:
 
@@ -77,42 +77,45 @@ to view a sample dataset from the generated tables, run:
 
 ##  Running The Pipeline in EMR
 
-To create the EMR cluster and run one instance of the etl.py pipeline, run:
+To create the EMR cluster and run one instance of the etl.py pipeline, run: 
+
 `python emr.py --cmd create-cluster`
 
-This command will create the cluster, find the hostname for the master node, copy the etl.py file, and initiate an EMR step that runs the Pipeline.
+This command will create the cluster, find the hostname for the master node, scp the etl.py file to the master node, and initiate an EMR step that runs the Pipeline from within the master node.
 
 to check the status of the clusters, run:
+
 `python emr.py --cmd describe-clusters`
 
-you can also login into AWS EMR console, where you would under the cluster tab, a view similar to the one below:
+you can also login into AWS EMR console and verify the cluster is in the RUNNING or WAITING mode:
 
 ![emr console][spark-etl-cluster]
 
-you can also verify that the ETL pipeline is running by listing the steps in the cluster:
+You can also verify that the ETL pipeline is running by listing the steps in the cluster:
+
 `python emr.py --cmd list_clusters_steps`
 
-The job should also appear in the Spark UI:
+The job should also appear in the Spark History Server UI:
 
 ![spark-jobs][spark-jobs]
 
-We can also look at the list of the executors for performance
+We can also look at the list of the Spark executors:
 
 ![spark executors][spark-executors]
 
 ### Output
 
-The final tables will show up as folders in S3, in buckets defined in etl.py
+The final tables will be stored as folders in S3 buckets defined in etl.py.
 
 ![s3 buckets][s3-buckets]
 
-The files format is parquet compressed with snappy. Here is an example of the songplays files
+The files format is parquet, using snappy compression. Here is an example of the songplays files:
 
 ![songplays parquet][songplays-parquet]
 
 ## Analysis with Amazon Athena
 
-After running the pipeline, we can do some analysis by ingesting the S3 data using [athena](https://aws.amazon.com/athena/)
+After running the pipeline, we can do some analysis by ingesting the S3 data using [Amazon Athena](https://aws.amazon.com/athena/)
 
 First, setup a Glue crawler that points to the bucket folder where the generated tables files are stored. The crawler will automatically extract the tables from the parquet files.
 
