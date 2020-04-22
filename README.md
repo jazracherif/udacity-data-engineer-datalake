@@ -1,12 +1,13 @@
 # Udacity Data Engineer Data Lake with Spark
 
-[staging_events]: 
-[staging_songs]: 
-[songs]: 
-[users]: 
-[time]: 
-[songplay]: 
-[artists]: 
+[athena-tables]: https://github.com/jazracherif/udacity-data-engineer-datalake/blob/master/docs/athena-tables.png
+[query-top-locations]: https://github.com/jazracherif/udacity-data-engineer-datalake/blob/master/docs/query-top-locations.png
+[query-top-users]: https://github.com/jazracherif/udacity-data-engineer-datalake/blob/master/docs/query-top-users.png
+[s3-buckets]: https://github.com/jazracherif/udacity-data-engineer-datalake/blob/master/docs/s3-buckets.png
+[songplays-parquet]: https://github.com/jazracherif/udacity-data-engineer-datalake/blob/master/docs/songplays-parquet.png
+[spark-etl-cluster]: https://github.com/jazracherif/udacity-data-engineer-datalake/blob/master/docs/spark-etl-cluster.png
+[spark-executors]: https://github.com/jazracherif/udacity-data-engineer-datalake/blob/master/docs/spark-executors.png
+[spark-jobs]: https://github.com/jazracherif/udacity-data-engineer-datalake/blob/master/docs/spark-jobs.png
 
 
 In this project, I implement a datalake in S3 supported by AWS Elastic MapReduct (EMR).
@@ -42,7 +43,7 @@ The project consists of the following files:
 
 This project currently presupposes a running EMR cluster with the proper SSH permissions setup to access the master node
 
-## local testing
+## Setup
 
 Create the virtual environment: 
 
@@ -59,14 +60,14 @@ Install python packages:
 In all sections below, it is assume the venv environment is activated.
 
 
-## Running the Pipeline locally on test data
+## Running the Pipeline in local mode
 
 The prerequisistes is to have a spark installation
 `brew install apache-spark`
 
 run the ETL in spark standalone mode:
 
-`spark-submit etl.py`
+`spark-submit etl.py --mode local`
 
 parquet files will be generated in a new folder called `out`
 
@@ -75,44 +76,43 @@ to view a sample dataset from the generated tables, run:
 `python test_local.py`
 
 
-##  Running The Pipeline on EMR
-In the following example, the master node is located at hadoop@ec2-54-153-4-183.us-west-1.compute.amazonaws.com.
+##  Running The Pipeline in EMR
 
-to run the pipeline, copy the etl.py to the master node:
+To create the EMR cluster and run the pipeline at the same time, run:
+`python emr.py --cmd create-cluster`
 
-`scp etl.py hadoop@ec2-54-153-4-183.us-west-1.compute.amazonaws.com:/tmp`
+to check the status of the clusters, run:
+`python emr.py --cmd describe-clusters`
 
-Then submit the job to EMR:
-`python submit-job.py`
+you can also login into AWS EMR console, where you would under the cluster tab, a view similar to the one below
+![emr console][spark-etl-cluster]
 
-The job can then be monitored in Spark UI at `http://ec2-54-153-4-183.us-west-1.compute.amazonaws.com:18080/history/`
+you can also verify that the ETL pipeline is running by listing the steps in the cluster:
+`python emr.py --cmd list_clusters_steps`
 
+The job should also appear in the Spark UI 
+![spark-jobs][spark-jobs]
 
-Staging Tables
+we can also look at the list of the executors for performance
+![spark executors][spark-executors]
 
-![staging_songs table][staging_songs]
-![staging_events table][staging_events]
+The final tables will show up as folders in S3, in bucket defined in etl.py
+![s3 buckets][s3-buckets]
 
-Fact Table
+The files format is parquet compressed with snappy. Here is an example of the songplays files
+![songplays parquet][songplays-parquet]
 
-![songs table][songplay]
-
-Dimension Tables
-
-![songs table][songs]
-![artists table][artists]
-![users table][users]
-![time table][time]
-
-# Analysis
-
+# Analysis with Amazon Athena
 
 After running the pipeline, we are able to do some analysis by ingesting the S3 data using [athena](https://aws.amazon.com/athena/)
 
-first, setup a Glue crawler that points to the bucket folder where the generated tables files are stored. The crawler will automatically extract the tables from the parquet files.
+First, setup a Glue crawler that points to the bucket folder where the generated tables files are stored. The crawler will automatically extract the tables from the parquet files.
 
-The crawlers takes a few minutes to run before the tables show up 
- 
+The crawlers takes a few minutes to run before the tables show up:
+
+![Athena tables][athena-tables]
+
+
 ~~~ sql
 WITH top_users AS (
     SELECT user_id, COUNT(*) AS count
@@ -134,11 +134,15 @@ and we get:
 
 | first_name | last_name | cnt |
 | ------------- |:-------------:|:-------------:|
-| Chloe | Cuevas | 41 |
-| Tegan | Levine | 31 |
-| Kate | Harrell | 28 |
-| Lily | Koch | 20 | 
-| Aleena | Kirby | 18 |
+| Chloe | Cuevas | 689 |
+| Tegan | Levine | 665 |
+| Kate | Harrell | 557 |
+| Lily | Koch | 463 | 
+| Aleena | Kirby | 397 |
+
+See the results in Athena:
+![query-top-users][query-top-users]
+
 
 We can also look for the top 5 most popular locations where songs are played, using the following query:
 
@@ -153,9 +157,11 @@ SELECT location,
 
 | location | count |
 | ------------- |:-------------:|
-| San Francisco-Oakland-Hayward, CA | 41
-| Portland-South Portland, ME | 31
-| Lansing-East Lansing, MI | 28
-| Chicago-Naperville-Elgin, IL-IN-WI | 20
-| Atlanta-Sandy Springs-Roswell, GA | 18
+| San Francisco-Oakland-Hayward, CA | 691
+| Portland-South Portland, ME | 665
+| Lansing-East Lansing, MI | 557
+| Chicago-Naperville-Elgin, IL-IN-WI | 475
+| Atlanta-Sandy Springs-Roswell, GA | 456
 
+See the results in Athena:
+![query top locations][query-top-locations]

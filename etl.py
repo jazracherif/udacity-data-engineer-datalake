@@ -210,7 +210,7 @@ def main():
     args = argparser()
     mode = args.mode
  
-    if mode == 'EMR':
+    if mode == 'emr':
         input_data = "s3a://udacity-dend/"
         output_data = "s3://jazra-udacity-spark-etl/"
     elif mode == 'local':
