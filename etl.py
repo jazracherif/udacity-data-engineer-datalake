@@ -1,5 +1,7 @@
 from datetime import datetime, date
 import os
+import argparse
+
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf, col
 from pyspark.sql.functions import year, month, dayofmonth, hour, weekofyear, date_format, dayofweek
@@ -157,7 +159,8 @@ def process_log_data(spark, input_data, output_data):
     # artist_id, session_id, location, user_agent
     songplays_table = spark.sql(
             """
-            SELECT e.start_time, 
+            SELECT row_number() OVER (PARTITION BY start_time ORDER BY start_time) as songplay_id,
+                   e.start_time, 
                    e.userId AS user_id, 
                    e.level AS level, 
                    s.song_id AS song_id, 
@@ -168,11 +171,10 @@ def process_log_data(spark, input_data, output_data):
                    e.year,
                    e.month
             FROM staging_events e
-            LEFT JOIN songs s ON e.song = s.title
-                    AND e.length = s.duration
-                    AND e.year = s.year
-           WHERE s.song_id IS NOT NULL
-             AND s.artist_id IS NOT NULL
+            LEFT JOIN songs s 
+                   ON e.song = s.title
+                  AND e.length = s.duration
+                  AND e.year = s.year
             """
         )
 
@@ -184,12 +186,39 @@ def process_log_data(spark, input_data, output_data):
                               partitionBy=["year", "month"]
                             )
 
+def argparser():
+    """ Command Line parser for the script
+    """
+
+    parser = argparse.ArgumentParser(description='ETL Pipeline utility')
+
+    parser.add_argument('--mode', 
+                        type=str,
+                        required=True,
+                        choices=["local", 
+                                 "emr", 
+                                 ]
+                        )
+
+    args = parser.parse_args()
+
+    return args
 
 def main():
+    """ Main entrypoint for the Spark ETL. 2 modes are supported: Local or EMR
+    """
+    args = argparser()
+    mode = args.mode
+ 
+    if mode == 'EMR':
+        input_data = "s3a://udacity-dend/"
+        output_data = "s3://jazra-udacity-spark-etl/"
+    elif mode == 'local':
+        input_data = "data/"
+        output_data = "out/"
+
     spark = create_spark_session()
-    input_data = "s3a://udacity-dend/"
-    output_data = "s3://jazra-udacity-spark-etl/"
-    
+
     process_song_data(spark, input_data, output_data)    
     process_log_data(spark, input_data, output_data)
 
